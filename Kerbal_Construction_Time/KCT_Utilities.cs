@@ -898,7 +898,7 @@ namespace KerbalConstructionTime
                 {
                     PopupDialog.SpawnPopupDialog(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), "editorChecksFailedPopup", "Failed editor checks!",
                         "Warning! This vessel did not pass the editor checks! It will still be built, but you will not be able to launch it without upgrading. Listed below are the failed checks:\n" 
-                        + string.Join("\n", facilityChecks.ToArray()), "Acknowledged", false, HighLogic.UISkin);
+                        + string.Join("\n", facilityChecks.Select(s => $"• {s}").ToArray()), "Acknowledged", false, HighLogic.UISkin);
                 }
 
 
@@ -1404,7 +1404,27 @@ namespace KerbalConstructionTime
                 dict[key] -= value;
                 return true;
             }
-                
+
+        }
+
+        public static bool PartIsUnlocked(ConfigNode partNode)
+        {
+            string partName = PartNameFromNode(partNode);
+            return PartIsUnlocked(partName);
+        }
+
+        public static bool PartIsUnlocked(string partName)
+        {
+            if (partName == null) return false;
+
+            AvailablePart partInfoByName = PartLoader.getPartInfoByName(partName);
+            if (partInfoByName == null) return false;
+
+            ProtoTechNode techState = ResearchAndDevelopment.Instance.GetTechState(partInfoByName.TechRequired);
+            bool partIsUnlocked = techState != null && techState.state == RDTech.State.Available &&
+                                  RUIutils.Any(techState.partsPurchased, (a => a.name == partName));
+
+            return partIsUnlocked;
         }
 
         public static bool PartIsProcedural(ConfigNode part)
@@ -1438,6 +1458,22 @@ namespace KerbalConstructionTime
                 }
             }
             return false;
+        }
+
+        public static string ConstructLockedPartsWarning(Dictionary<AvailablePart, int> lockedPartsOnShip)
+        {
+            if (lockedPartsOnShip == null || lockedPartsOnShip.Count == 0)
+                return null;
+
+            StringBuilder sb = new StringBuilder();
+            sb.Append("This vessel contains parts which are not available at the moment:\n");
+
+            foreach (KeyValuePair<AvailablePart, int> kvp in lockedPartsOnShip)
+            {
+                sb.Append($" <color=orange><b>{kvp.Value}x {kvp.Key.title}</b></color>\n");
+            }
+
+            return sb.ToString();
         }
 
         public static int BuildingUpgradeLevel(SpaceCenterFacility facility)
